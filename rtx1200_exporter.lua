@@ -1,10 +1,8 @@
 #!./upload.sh
 --[[
 Prometheus exporter for RTX1200
-
 lua /rtx1200_exporter.lua
 show status lua
-
 schedule at 1 startup * lua /rtx1200_exporter.lua 
 ]]
 -- vim:fenc=cp932
@@ -59,8 +57,10 @@ while 1 do
 
 			local ok, result = rt.command("show environment")
 			if not ok then error("command failed") end
-			local cpu5sec, cpu1min, cpu5min, memused = string.match(result, /CPU:\s*(\d+)%\(5sec\)\s*(\d+)%\(1min\)\s*(\d+)%\(5min\)\s*メモリ:\s*(\d+)% used/)
-			local temperature = string.match(result, /筐体内温度\(.*\): (\d+)/)
+			local cpu5sec, cpu1min, cpu5min, memused = string.match(result, /CPU:\s*(\d+)%\(5sec\)\s*(\d+)%\(1min\)\s*(\d+)%\(5min\)\s*Memory:\s*(\d+)% used/)
+			local pktbufS, pktbufM, pktbufL, pktbufH = string.match(result, /Packet-buffer:\s*(\d+)%\(small\)\s*(\d+)%\(middle\)\s*(\d+)%\(large\)\s*(\d+)%\(huge\)/)
+			local temperature = string.match(result, /Inside Temperature\(.*\): (\d+)/)
+			local uptime = string.match(result, /Elapsed time from boot:\s*(\d+)days/)
 			local luacount = collectgarbage("count")
 
 			local sent, err = control:send(
@@ -70,6 +70,13 @@ while 1 do
 				$"yrhCpuUtil1min ${cpu1min}\n"..
 				"# TYPE yrhCpuUtil5min gauge\n"..
 				$"yrhCpuUtil5min ${cpu5min}\n"..
+				"# TYPE yrhPktBuf gauge\n"..
+				$"yrhPktBuf{size=\"small\"} ${pktbufS}\n"..
+				$"yrhPktBuf{size=\"middle\"} ${pktbufM}\n"..
+				$"yrhPktBuf{size=\"large\"} ${pktbufL}\n"..
+				$"yrhPktBuf{size=\"huge\"} ${pktbufH}\n"..
+				"# TYPE yrhUptime gauge\n"..
+				$"yrhUptime ${uptime}\n"..
 				"# TYPE yrhInboxTemperature gauge\n"..
 				$"yrhInboxTemperature ${temperature}\n"..
 				"# TYPE yrhMemoryUtil gauge\n"..
@@ -88,8 +95,8 @@ while 1 do
 			for n = 1, 3 do
 				local ok, result = rt.command($"show status lan${n}")
 				if not ok then error("command failed") end
-				local txpackets, txoctets = string.match(result, /送信パケット:\s*(\d+)\s*パケット\((\d+)\s*オクテット\)/)
-				local rxpackets, rxoctets = string.match(result, /受信パケット:\s*(\d+)\s*パケット\((\d+)\s*オクテット\)/)
+				local txpackets, txoctets = string.match(result, /Transmitted:\s*(\d+)\s*packets\s*\((\d+)\s*octets\)/)
+				local rxpackets, rxoctets = string.match(result, /Received:\s*(\d+)\s*packets\s*\((\d+)\s*octets\)/)
 				local sent, err = control:send(
 					$"ifOutOctets{if=\"${n}\"} ${txoctets}\n"..
 					$"ifInOctets{if=\"${n}\"} ${rxoctets}\n"..
@@ -116,10 +123,10 @@ while 1 do
 			if err then error(err) end
 
 			local ok, result = rt.command("show status dhcp")
-			local dhcptotal = string.match(result, /全アドレス数:\s*(\d+)/)
-			local dhcpexcluded = string.match(result, /除外アドレス数:\s*(\d+)/)
-			local dhcpassigned = string.match(result, /割り当て中アドレス数:\s*(\d+)/)
-			local dhcpavailable = string.match(result, /利用[^:]+?アドレス数:\s*(\d+)/)
+			local dhcptotal = string.match(result, /All:\s*(\d+)/)
+			local dhcpexcluded = string.match(result, /Except:\s*(\d+)/)
+			local dhcpassigned = string.match(result, /Leased:\s*(\d+)/)
+			local dhcpavailable = string.match(result, /Usable:\s*(\d+)/)
 			local sent, err = control:send(
 				"# TYPE ipDhcp gauge\n"..
 				$"ipDhcp{} ${dhcptotal}\n"..
