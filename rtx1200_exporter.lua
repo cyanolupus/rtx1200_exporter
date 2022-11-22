@@ -97,6 +97,10 @@ while 1 do
 				if not ok then error("command failed") end
 				local txpackets, txoctets = string.match(result, /Transmitted:\s*(\d+)\s*packets\s*\((\d+)\s*octets\)/)
 				local rxpackets, rxoctets = string.match(result, /Received:\s*(\d+)\s*packets\s*\((\d+)\s*octets\)/)
+				if not (txpackets) then txpackets = 0 end
+				if not (txoctets) then txoctets = 0 end
+				if not (rxpackets) then rxpackets = 0 end
+				if not (rxoctets) then rxoctets = 0 end
 				local sent, err = control:send(
 					$"ifOutOctets{if=\"${n}\"} ${txoctets}\n"..
 					$"ifInOctets{if=\"${n}\"} ${rxoctets}\n"..
